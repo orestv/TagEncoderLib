@@ -23,6 +23,29 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         super(data);
     }
 
+    private static String getCode(Tag tag) {
+        switch (tag) {
+            case ARTIST:
+                return "TPE1";
+            case ALBUM:
+                return "TALB";
+            case TITLE:
+                return "TIT2";
+        }
+        return "";
+    }
+    
+    private static Tag getTagType(String code) {
+        if (code.equals("TPE1"))
+            return Tag.ARTIST;
+        else if (code.equals("TALB"))
+            return Tag.ALBUM;
+        else if (code.equals("TIT2"))
+            return Tag.TITLE;
+        else
+            return null;
+    }
+
     @Override
     public void updateTagValue(OutputStream os, Tag tag, String value) throws IOException {
         InputStream is = new ByteArrayInputStream(data);
@@ -38,12 +61,12 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         boolean bTagFound = false;
         int nTagStartIndex = 0;
         for (nTagStartIndex = 0; nTagStartIndex < baHeader.length; nTagStartIndex++) {
-            if ((char) baHeader[nTagStartIndex] == tag.getCode().charAt(nTagNameIndex)) {
+            if ((char) baHeader[nTagStartIndex] == getCode(tag).charAt(nTagNameIndex)) {
                 nTagNameIndex++;
             } else {
                 nTagNameIndex = 0;
             }
-            if (nTagNameIndex >= tag.getCode().length()) {
+            if (nTagNameIndex >= getCode(tag).length()) {
                 nTagStartIndex++;
                 bTagFound = true;
                 break;
@@ -115,8 +138,8 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         return nResult;
     }
 
-    private static HashMap<String, String> getTags(byte[] baTags, String sCharsetName) throws IOException {
-        HashMap<String, String> hmResult = new HashMap<String, String>();
+    private static HashMap<Tag, String> getTags(byte[] baTags, String sCharsetName) throws IOException {
+        HashMap<Tag, String> hmResult = new HashMap<Tag, String>();
 
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(baTags));
         while (true) {
@@ -139,8 +162,11 @@ public class ID3V2Encoder extends AbstractTagEncoder {
 
             String sName, sValue;
             sName = new String(baTagName);
-            sValue = new String(baTagValue, sCharsetName);
-            hmResult.put(sName, sValue);
+            Tag tag = getTagType(sName);
+            if (tag != null) {
+                sValue = new String(baTagValue, sCharsetName);
+                hmResult.put(tag, sValue);
+            }
         }
 
         return hmResult;
@@ -176,7 +202,7 @@ public class ID3V2Encoder extends AbstractTagEncoder {
     }
 
     @Override
-    public HashMap<String, String> getTags(String sCharsetName) throws IOException {
+    public HashMap<Tag, String> getTags(String sCharsetName) throws IOException {
         InputStream is = new ByteArrayInputStream(data);
         byte[] baTags = getHeaderBytes(is);
         return getTags(baTags, sCharsetName);

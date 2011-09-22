@@ -21,6 +21,6 @@ public abstract class AbstractTagEncoder {
         this.data = data;
     }
     
-    public abstract HashMap<String, String> getTags(String sCharsetName) throws IOException;
+    public abstract HashMap<Tag, String> getTags(String sCharsetName) throws IOException;
     public abstract void updateTagValue(OutputStream os, Tag tag, String value) throws IOException;
 }
