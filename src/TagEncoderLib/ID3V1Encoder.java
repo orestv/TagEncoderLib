@@ -29,20 +29,36 @@ public class ID3V1Encoder extends AbstractTagEncoder {
 
         InputStream is = new ByteArrayInputStream(baTags);
         byte[] baTag = new byte[30];
+        
 
-        is.read(baTag);
-        String sTagValue = new String(baTag, sCharsetName).trim();
-        tags.put(Tag.TITLE, sTagValue);
-
-        is.read(baTag);
-        sTagValue = new String(baTag, sCharsetName).trim();
-        tags.put(Tag.ARTIST, sTagValue);
-
-        is.read(baTag);
-        sTagValue = new String(baTag, sCharsetName).trim();
-        tags.put(Tag.ALBUM, sTagValue);
+        tags.put(Tag.Title, readTag(is, Tag.Title, sCharsetName));
+        tags.put(Tag.Artist, readTag(is, Tag.Artist, sCharsetName));
+        tags.put(Tag.Album, readTag(is, Tag.Album, sCharsetName));
+        tags.put(Tag.Year, readTag(is, Tag.Year, sCharsetName));
+        tags.put(Tag.Comment, readTag(is, Tag.Comment, sCharsetName));
 
         return tags;
+    }
+    
+    private int getTagLength(Tag tag) {
+        switch(tag) {
+            case Artist:
+            case Album:
+            case Title:
+            case Comment:
+                return 30;
+            case Year:
+                return 4;
+        }
+        return 30;
+    }
+    
+    private String readTag(InputStream is, Tag tag, String sCharsetName) throws IOException {
+        int nLength = getTagLength(tag);
+        byte[] buf = new byte[nLength];
+        is.read(buf);
+        String sResult = new String(buf, sCharsetName).trim(); 
+        return sResult;
     }
 
     @Override
@@ -66,11 +82,11 @@ public class ID3V1Encoder extends AbstractTagEncoder {
 
     private static int getTagOffset(Tag tag) {
         switch (tag) {
-            case TITLE:
+            case Title:
                 return 0;
-            case ARTIST:
+            case Artist:
                 return 30;
-            case ALBUM:
+            case Album:
                 return 60;
         }
         return 0;

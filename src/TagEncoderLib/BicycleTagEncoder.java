@@ -25,9 +25,12 @@ public class BicycleTagEncoder {
     public static int BUFFER_SIZE = 4096;
 
     public enum Tag {
-        ARTIST,
-        ALBUM,
-        TITLE;
+        Artist,
+        Album,
+        Title,
+        Year,
+        Comment,
+        Genre;
     }
 
     public enum TagVersion {
@@ -36,13 +39,10 @@ public class BicycleTagEncoder {
     }
 
     public static byte[] readFile(InputStream is) throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        byte[] buf = new byte[BUFFER_SIZE];
-        int nReadCount = 0;
-        while ((nReadCount = is.read(buf)) != -1) {
-            bos.write(buf, 0, nReadCount);
-        }
-        return bos.toByteArray();
+        int nFileSize = is.available();
+        byte[] buf = new byte[nFileSize];
+        is.read(buf);
+        return buf;
     }
 
     private static TagVersion parseTagVersion(byte[] data) throws IOException {

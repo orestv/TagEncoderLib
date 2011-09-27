@@ -25,11 +25,11 @@ public class ID3V2Encoder extends AbstractTagEncoder {
 
     private static String getCode(Tag tag) {
         switch (tag) {
-            case ARTIST:
+            case Artist:
                 return "TPE1";
-            case ALBUM:
+            case Album:
                 return "TALB";
-            case TITLE:
+            case Title:
                 return "TIT2";
         }
         return "";
@@ -37,11 +37,11 @@ public class ID3V2Encoder extends AbstractTagEncoder {
     
     private static Tag getTagType(String code) {
         if (code.equals("TPE1"))
-            return Tag.ARTIST;
+            return Tag.Artist;
         else if (code.equals("TALB"))
-            return Tag.ALBUM;
+            return Tag.Album;
         else if (code.equals("TIT2"))
-            return Tag.TITLE;
+            return Tag.Title;
         else
             return null;
     }
