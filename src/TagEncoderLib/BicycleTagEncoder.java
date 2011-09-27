@@ -76,6 +76,12 @@ public class BicycleTagEncoder {
         AbstractTagEncoder encoder = getEncoder(is);
         encoder.updateTagValue(os, tag, value);
     }
+    
+    
+    public static void updateTags(InputStream is, OutputStream os, Tag[] tags, String[] values) {
+        
+    }
+    
     public static HashMap<Tag, String> getTags(InputStream is, String sCharsetName) throws IOException, UnknownFormatException {
         AbstractTagEncoder encoder = getEncoder(is);
         return encoder.getTags(sCharsetName);

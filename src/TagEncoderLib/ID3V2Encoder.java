@@ -11,7 +11,9 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
+import java.util.Iterator;
 
 /**
  *
@@ -31,19 +33,21 @@ public class ID3V2Encoder extends AbstractTagEncoder {
                 return "TALB";
             case Title:
                 return "TIT2";
+            case Year:
+                return "TYER";
+            case Comment:
+                return "COMM";
         }
         return "";
     }
     
     private static Tag getTagType(String code) {
-        if (code.equals("TPE1"))
-            return Tag.Artist;
-        else if (code.equals("TALB"))
-            return Tag.Album;
-        else if (code.equals("TIT2"))
-            return Tag.Title;
-        else
-            return null;
+        Tag[] tags = Tag.values();
+        for (int i = 0; i < tags.length; i++) {
+            if (code.equals(getCode(tags[i])))
+                return tags[i];
+        }
+        return null;
     }
 
     @Override
@@ -111,6 +115,35 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         }
         is.close();
         os.close();
+    }
+    
+    private static byte[] createHeader(HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        
+        //Tag header - ID3v2.3.0 and flags (none set)
+        byte[] baHeaderHeader = new byte[] {'I', 'D', '3', 3, 0, 0};
+        
+        Iterator<Tag> iter = tags.keySet().iterator();
+        while (iter.hasNext()) {
+            Tag tag = iter.next();
+            String value = tags.get(tag);
+            byte[] baValue = value.getBytes("UTF-16");
+            byte[] baFrameLength = synchronizeIntegerValue(baValue.length);
+            
+            //TODO: Find out whether encoding specification is needed here.
+            bos.write(getCode(tag).getBytes("ISO8859-1"));
+            bos.write(baFrameLength);
+            bos.write(baValue);
+        }
+        
+        byte[] baHeaderSize = synchronizeIntegerValue(bos.size());
+        byte[] baHeader = bos.toByteArray();
+        ByteArrayOutputStream bos_result = new ByteArrayOutputStream(10 + bos.size());
+        
+        bos_result.write(baHeaderHeader);
+        bos_result.write(baHeaderSize);
+        bos_result.write(baHeader);
+        return bos_result.toByteArray();
     }
 
     public static byte[] synchronizeIntegerValue(int value) {
