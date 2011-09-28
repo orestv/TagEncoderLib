@@ -86,16 +86,15 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         byte[] baOldTagLength = new byte[4];
         bis.read(baOldTagLength);
         int nOldTagLength = desynchronizeIntegerValue(baOldTagLength);
-        byte[] baTagFlags = new byte[3];
+        byte[] baTagFlags = new byte[2];
         bis.read(baTagFlags);
-        baTagFlags[2] = 0x01;  //set encoding to UTF-16
         byte[] baNewTagValue = value.getBytes("UTF-16");
         int nNewTagLength = baNewTagValue.length + 1;
 
         int nNewHeaderLength = baHeader.length + (nNewTagLength - nOldTagLength);
 
         //4 - tag length, 3 - tag flags
-        int nNextTagIndex = nTagStartIndex + 4 + 3 + nOldTagLength - 1;
+        int nNextTagIndex = nTagStartIndex + 4 + 2 + nOldTagLength;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream(nNewHeaderLength);
 
@@ -104,6 +103,8 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         bos.write(baHeader, 0, nTagStartIndex);
         bos.write(synchronizeIntegerValue(nNewTagLength));
         bos.write(baTagFlags);
+        //UTF-16 mark
+        bos.write(1);
         bos.write(baNewTagValue);
         bos.write(baHeader, nNextTagIndex, nOldHeaderLength - nNextTagIndex - 10);
         bos.writeTo(os);
@@ -133,6 +134,7 @@ public class ID3V2Encoder extends AbstractTagEncoder {
             //TODO: Find out whether encoding specification is needed here.
             bos.write(getCode(tag).getBytes("ISO8859-1"));
             bos.write(baFrameLength);
+            bos.write(1);
             bos.write(baValue);
         }
         

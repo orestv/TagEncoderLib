@@ -28,9 +28,7 @@ public class ID3V1Encoder extends AbstractTagEncoder {
         byte[] baTags = getTagBytes();
 
         InputStream is = new ByteArrayInputStream(baTags);
-        byte[] baTag = new byte[30];
         
-
         tags.put(Tag.Title, readTag(is, Tag.Title, sCharsetName));
         tags.put(Tag.Artist, readTag(is, Tag.Artist, sCharsetName));
         tags.put(Tag.Album, readTag(is, Tag.Album, sCharsetName));
