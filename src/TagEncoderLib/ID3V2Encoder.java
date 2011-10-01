@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -40,12 +41,13 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         }
         return "";
     }
-    
+
     private static Tag getTagType(String code) {
         Tag[] tags = Tag.values();
         for (int i = 0; i < tags.length; i++) {
-            if (code.equals(getCode(tags[i])))
+            if (code.equals(getCode(tags[i]))) {
                 return tags[i];
+            }
         }
         return null;
     }
@@ -117,28 +119,68 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         is.close();
         os.close();
     }
-    
+
+    public static byte[] updateTags(byte[] data, HashMap<Tag, String> tags) throws IOException {
+
+        ByteArrayInputStream bis = new ByteArrayInputStream(data);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length);
+        //ID3, version, flags
+        for (int i = 0; i < 6; i++) {
+            bos.write(bis.read());
+        }
+        byte[] baHeaderSize = new byte[4];
+        bis.read(baHeaderSize);
+        int nHeaderSize = desynchronizeIntegerValue(baHeaderSize);
+
+        byte[] baTagName = new byte[4];
+        
+        bis.read(baTagName);
+        
+        int nPosition = 10 + 4;
+        byte[] baEmpty = new byte[]{0, 0, 0, 0};
+        while (nPosition < nHeaderSize && !Arrays.equals(baTagName, baEmpty)) {
+            String sTagName = new String(baTagName);
+            String sTagValue = tags.get(getTagType(sTagName));
+            byte[] baFrameLength = new byte[4];
+            byte[] baFrameFlags = new byte[2];
+            if (sTagValue != null) {
+                bis.read(baFrameLength);
+                bis.read(baFrameFlags);
+                //length + flags + encoding
+                nPosition += 4 + 2 + 1;
+                int nFrameLength = desynchronizeIntegerValue(baFrameLength);
+            } else {
+                
+            }
+
+            bis.read(baTagName);
+            nPosition += 4;
+        }
+
+        return bos.toByteArray();
+    }
+
     public static byte[] appendHeader(byte[] data, HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
         byte[] header = createHeader(tags);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(header.length+data.length);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(header.length + data.length);
         bos.write(header);
         bos.write(data);
         return bos.toByteArray();
     }
-    
+
     private static byte[] createHeader(HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        
+
         //Tag header - ID3v2.3.0 and flags (none set)
-        byte[] baHeaderHeader = new byte[] {'I', 'D', '3', 4, 0, 0};
-        
+        byte[] baHeaderHeader = new byte[]{'I', 'D', '3', 4, 0, 0};
+
         Iterator<Tag> iter = tags.keySet().iterator();
         while (iter.hasNext()) {
             Tag tag = iter.next();
             String value = tags.get(tag);
             byte[] baValue = value.getBytes("UTF-16");
-            byte[] baFrameLength = synchronizeIntegerValue(baValue.length+1);
-            
+            byte[] baFrameLength = synchronizeIntegerValue(baValue.length + 1);
+
             //TODO: Find out whether encoding specification is needed here.
             bos.write(getCode(tag).getBytes("ISO8859-1"));
             bos.write(baFrameLength);
@@ -150,7 +192,7 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         byte[] baHeaderSize = synchronizeIntegerValue(nHeaderSize);
         byte[] baHeader = bos.toByteArray();
         ByteArrayOutputStream bos_result = new ByteArrayOutputStream(nHeaderSize);
-        
+
         bos_result.write(baHeaderHeader);
         bos_result.write(baHeaderSize);
         bos_result.write(baHeader);
