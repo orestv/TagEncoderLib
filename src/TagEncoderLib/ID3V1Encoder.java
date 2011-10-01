@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 
 /**
@@ -40,7 +41,28 @@ public class ID3V1Encoder extends AbstractTagEncoder {
         return tags;
     }
     
-    private int getTagLength(Tag tag) {
+    public static HashMap<Tag, String> getTags(byte[] data) throws IOException {
+        return getTags(data, "ISO8859-1");
+    }
+    
+    public static HashMap<Tag, String> getTags(byte[] data, String sCharsetName) throws IOException {
+        HashMap<Tag, String> tags = new HashMap<Tag, String>();
+        byte[] baTags = getTagBytes(data);
+
+        InputStream is = new ByteArrayInputStream(baTags);
+        byte[] baTag = new byte[30];
+        
+
+        tags.put(Tag.Title, readTag(is, Tag.Title, sCharsetName));
+        tags.put(Tag.Artist, readTag(is, Tag.Artist, sCharsetName));
+        tags.put(Tag.Album, readTag(is, Tag.Album, sCharsetName));
+        tags.put(Tag.Year, readTag(is, Tag.Year, sCharsetName));
+        tags.put(Tag.Comment, readTag(is, Tag.Comment, sCharsetName));
+
+        return tags;
+    }
+    
+    private static int getTagLength(Tag tag) {
         switch(tag) {
             case Artist:
             case Album:
@@ -53,7 +75,7 @@ public class ID3V1Encoder extends AbstractTagEncoder {
         return 30;
     }
     
-    private String readTag(InputStream is, Tag tag, String sCharsetName) throws IOException {
+    private static String readTag(InputStream is, Tag tag, String sCharsetName) throws IOException {
         int nLength = getTagLength(tag);
         byte[] buf = new byte[nLength];
         is.read(buf);
@@ -97,5 +119,17 @@ public class ID3V1Encoder extends AbstractTagEncoder {
         byte[] baTags = new byte[125];
         is.read(baTags);
         return baTags;
+    }
+    
+    private static byte[] getTagBytes(byte[] data) throws IOException {
+        InputStream is = new ByteArrayInputStream(data, data.length - 128 + 3, 128);
+        byte[] baTags = new byte[125];
+        is.read(baTags);
+        return baTags;
+    }
+    
+    public static byte[] stripTag(byte[] data) {
+        byte[] ret = Arrays.copyOf(data, data.length-128);
+        return ret;
     }
 }

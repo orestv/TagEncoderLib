@@ -117,6 +117,14 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         os.close();
     }
     
+    public static byte[] appendHeader(byte[] data, HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
+        byte[] header = createHeader(tags);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(header.length+data.length);
+        bos.write(header);
+        bos.write(data);
+        return bos.toByteArray();
+    }
+    
     private static byte[] createHeader(HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         

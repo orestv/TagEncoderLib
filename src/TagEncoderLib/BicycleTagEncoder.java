@@ -86,4 +86,15 @@ public class BicycleTagEncoder {
         AbstractTagEncoder encoder = getEncoder(is);
         return encoder.getTags(sCharsetName);
     }
+    
+    public static void convertV1ToV2(InputStream is, OutputStream os) throws IOException {
+        byte[] data = readFile(is);
+        TagVersion version = parseTagVersion(data);
+        if (version != TagVersion.ID3V1)
+            return;
+        HashMap<Tag, String> tags = ID3V1Encoder.getTags(data);
+        data = ID3V1Encoder.stripTag(data);
+        data = ID3V2Encoder.appendHeader(data, tags);
+        os.write(data);
+    }
 }
