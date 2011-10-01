@@ -130,25 +130,26 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         
         //Tag header - ID3v2.3.0 and flags (none set)
-        byte[] baHeaderHeader = new byte[] {'I', 'D', '3', 3, 0, 0};
+        byte[] baHeaderHeader = new byte[] {'I', 'D', '3', 4, 0, 0};
         
         Iterator<Tag> iter = tags.keySet().iterator();
         while (iter.hasNext()) {
             Tag tag = iter.next();
             String value = tags.get(tag);
             byte[] baValue = value.getBytes("UTF-16");
-            byte[] baFrameLength = synchronizeIntegerValue(baValue.length);
+            byte[] baFrameLength = synchronizeIntegerValue(baValue.length+1);
             
             //TODO: Find out whether encoding specification is needed here.
             bos.write(getCode(tag).getBytes("ISO8859-1"));
             bos.write(baFrameLength);
-            bos.write(1);
+            bos.write(new byte[]{0, 0});
+            bos.write(2);
             bos.write(baValue);
         }
-        
-        byte[] baHeaderSize = synchronizeIntegerValue(bos.size());
+        int nHeaderSize = bos.size();
+        byte[] baHeaderSize = synchronizeIntegerValue(nHeaderSize);
         byte[] baHeader = bos.toByteArray();
-        ByteArrayOutputStream bos_result = new ByteArrayOutputStream(10 + bos.size());
+        ByteArrayOutputStream bos_result = new ByteArrayOutputStream(nHeaderSize);
         
         bos_result.write(baHeaderHeader);
         bos_result.write(baHeaderSize);
