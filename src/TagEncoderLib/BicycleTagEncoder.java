@@ -78,8 +78,8 @@ public class BicycleTagEncoder {
     }
     
     
-    public static void updateTags(InputStream is, OutputStream os, Tag[] tags, String[] values) {
-        
+    public static void updateTags(InputStream is, OutputStream os, Tag[] tags, String[] values) throws IOException {        
+         
     }
     
     public static HashMap<Tag, String> getTags(InputStream is, String sCharsetName) throws IOException, UnknownFormatException {
