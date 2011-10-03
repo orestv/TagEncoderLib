@@ -122,6 +122,8 @@ public class ID3V2Encoder extends AbstractTagEncoder {
 
     public static byte[] updateTags(byte[] data, HashMap<Tag, String> tags) throws IOException {
 
+        byte[] baEmpty = new byte[]{0, 0, 0, 0};
+        
         ByteArrayInputStream bis = new ByteArrayInputStream(data);
         ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length);
         //ID3, version, flags
@@ -131,33 +133,57 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         byte[] baHeaderSize = new byte[4];
         bis.read(baHeaderSize);
         int nHeaderSize = desynchronizeIntegerValue(baHeaderSize);
+        
+        //size - empty for now, will be filled in later
+        bos.write(baEmpty);
 
-        byte[] baTagName = new byte[4];
+        byte[] baFrameName = new byte[4];
         
-        bis.read(baTagName);
-        
+        bis.read(baFrameName);        
+        //headerHeader + first frame name
         int nPosition = 10 + 4;
-        byte[] baEmpty = new byte[]{0, 0, 0, 0};
-        while (nPosition < nHeaderSize && !Arrays.equals(baTagName, baEmpty)) {
-            String sTagName = new String(baTagName);
+        
+        while (nPosition < nHeaderSize && !Arrays.equals(baFrameName, baEmpty)) {
+            bos.write(baFrameName);
+            String sTagName = new String(baFrameName);
             String sTagValue = tags.get(getTagType(sTagName));
             byte[] baFrameLength = new byte[4];
             byte[] baFrameFlags = new byte[2];
+            bis.read(baFrameLength);
+            bis.read(baFrameFlags);
+            //length + flags + encoding
+            nPosition += 4 + 2 + 1;
+            int nFrameLength = desynchronizeIntegerValue(baFrameLength);
+            nPosition += nFrameLength;
             if (sTagValue != null) {
-                bis.read(baFrameLength);
-                bis.read(baFrameFlags);
-                //length + flags + encoding
-                nPosition += 4 + 2 + 1;
-                int nFrameLength = desynchronizeIntegerValue(baFrameLength);
-            } else {
+                byte[] baFrameValue = sTagValue.getBytes("UTF-16");
+                bis.skip(nFrameLength);
+                nPosition += nFrameLength;
                 
+                nFrameLength = baFrameValue.length;
+                bos.write(synchronizeIntegerValue(nFrameLength));
+                bos.write(new byte[]{0, 0});
+                bos.write(baFrameValue);                
+            } else {
+                bos.write(baFrameLength);
+                bos.write(baFrameFlags);
+                byte[] baFrameValue = new byte[nFrameLength];
+                bis.read(baFrameValue);
+                nPosition += nFrameLength;
+                bos.write(baFrameValue);
             }
 
-            bis.read(baTagName);
+            bis.read(baFrameName);
             nPosition += 4;
         }
+        
+        byte[] ret = bos.toByteArray();
+        baHeaderSize = synchronizeIntegerValue(ret.length - 10);
+        for (int i = 0; i < 4; i++) {
+            ret[i+6] = baHeaderSize[i];
+        }
 
-        return bos.toByteArray();
+        return ret;
     }
 
     public static byte[] appendHeader(byte[] data, HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
@@ -182,10 +208,10 @@ public class ID3V2Encoder extends AbstractTagEncoder {
             byte[] baFrameLength = synchronizeIntegerValue(baValue.length + 1);
 
             //TODO: Find out whether encoding specification is needed here.
-            bos.write(getCode(tag).getBytes("ISO8859-1"));
+            bos.write(getCode(tag).getBytes());
             bos.write(baFrameLength);
             bos.write(new byte[]{0, 0});
-            bos.write(2);
+            bos.write(1);
             bos.write(baValue);
         }
         int nHeaderSize = bos.size();
