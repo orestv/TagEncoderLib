@@ -277,7 +277,7 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         return nResult;
     }
 
-    private static HashMap<Tag, String> getTags(byte[] baTags, String sCharsetName) throws IOException {
+    public static HashMap<Tag, String> getTags(byte[] baTags, String sCharsetName) throws IOException {
         HashMap<Tag, String> hmResult = new HashMap<Tag, String>();
 
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(baTags));

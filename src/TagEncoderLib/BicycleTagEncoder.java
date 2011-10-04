@@ -59,22 +59,9 @@ public class BicycleTagEncoder {
             return TagVersion.ID3V1;
         return null;
     }
-    
-    public static AbstractTagEncoder getEncoder(InputStream is) throws IOException, UnknownFormatException {
-        byte[] data = readFile(is);
-        TagVersion version = parseTagVersion(data);
-        switch(version) {
-            case ID3V1:
-                return new ID3V1Encoder(data);
-            case ID3V2:
-                return new ID3V2Encoder(data);
-        }
-        throw new UnknownFormatException();
-    }
 
     public static void updateTagValue(InputStream is, OutputStream os, Tag tag, String value) throws IOException, UnknownFormatException {
-        AbstractTagEncoder encoder = getEncoder(is);
-        encoder.updateTagValue(os, tag, value);
+        updateTags(is, os, new Tag[]{tag}, new String[]{value});
     }
     
     
@@ -85,8 +72,15 @@ public class BicycleTagEncoder {
     }
     
     public static HashMap<Tag, String> getTags(InputStream is, String sCharsetName) throws IOException, UnknownFormatException {
-        AbstractTagEncoder encoder = getEncoder(is);
-        return encoder.getTags(sCharsetName);
+        byte[] data = readFile(is);
+        TagVersion version = parseTagVersion(data);
+        switch(version) {
+            case ID3V1:
+                return ID3V1Encoder.getTags(data, sCharsetName);
+            case ID3V2:
+                return ID3V2Encoder.getTags(data, sCharsetName);
+        }
+        throw new UnknownFormatException();
     }
     
     public static void convertV1ToV2(InputStream is, OutputStream os, String sCharsetName) throws IOException {
