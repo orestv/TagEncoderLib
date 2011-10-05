@@ -7,7 +7,6 @@ package TagEncoderLib;
 import TagEncoderLib.BicycleTagEncoder.Tag;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -15,14 +14,12 @@ import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.logging.StreamHandler;
 
 /**
  *
  * @author ovoloshchuk
  */
 public class ID3V2Encoder {
-
 
     private static String getCode(Tag tag) {
         switch (tag) {
@@ -71,20 +68,23 @@ public class ID3V2Encoder {
         return null;
     }
 
-    
-    public static byte[] updateTags(InputStream bis, Tag[] tags, String[] values) throws IOException {
+    public static void updateTags(InputStream is, OutputStream os, Tag[] tags, String[] values) throws IOException {
+
+        is.skip(6);
+        byte[] baFrames = getFrames(is);
 
         byte[] baEmpty = new byte[]{0, 0, 0, 0};
 
-        //ByteArrayInputStream bis = new ByteArrayInputStream(data);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(bis.available());
+        InputStream bis = new ByteArrayInputStream(baFrames);
+        int nHeaderSize = baFrames.length;
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(nHeaderSize);
+
         //ID3, version, flags
-        for (int i = 0; i < 6; i++) 
-            bos.write(bis.read()); 
-        
-        byte[] baHeaderSize = new byte[4];
-        bis.read(baHeaderSize);
-        int nHeaderSize = desynchronizeIntegerValue(baHeaderSize);
+        bos.write(new byte[]{'I', 'D', '3', 4, 0, 0});
+
+        //Size yet unknown
+        bos.write(baEmpty);
 
         byte[] baFrameName = new byte[4];
 
@@ -93,8 +93,6 @@ public class ID3V2Encoder {
         int nPosition = 10 + 4;
         byte[] baFrameLength = new byte[4];
         byte[] baFrameFlags = new byte[2];
-        
-        bos.write(baEmpty);
 
         while (nPosition < nHeaderSize && !Arrays.equals(baFrameName, baEmpty)) {
             bos.write(baFrameName);
@@ -102,8 +100,9 @@ public class ID3V2Encoder {
             Tag tag = getTagType(sTagName);
             String sTagValue = null;
             for (int i = 0; tag != null && i < tags.length; i++) {
-                if (tags[i] == tag)
+                if (tags[i] == tag) {
                     sTagValue = values[i];
+                }
             }
             bis.read(baFrameLength);
             bis.read(baFrameFlags);
@@ -124,11 +123,11 @@ public class ID3V2Encoder {
             } else {
                 bos.write(baFrameLength);
                 bos.write(baFrameFlags);
-                
+
                 //Read/write the frame value
                 for (int i = 0; i < nFrameLength; i++) {
                     bos.write(bis.read());
-                }                
+                }
                 nPosition += nFrameLength;
             }
 
@@ -136,28 +135,25 @@ public class ID3V2Encoder {
             nPosition += 4;
         }
         bos.write(baFrameName);
-        
+
         int nReadValue = 0;
         //Move through padding
-        while (nReadValue == 0)
+        do {
             nReadValue = bis.read();
-        //The first byte that's not padding
-        bos.write(nReadValue);
-        
-        byte[] baHeader = bos.toByteArray();
-        baHeaderSize = synchronizeIntegerValue(baHeader.length - 11);        
-        
-        byte[] buf = new byte[8192];
-        int nReadCount = 0;
-        while ((nReadCount = bis.read(buf)) != -1)
-            bos.write(buf, 0, nReadCount);
-        //bos.write(data, nPosition, data.length-nPosition-1);
-        byte[] ret = bos.toByteArray();
-        for (int i = 0; i < 4; i++) {
-            ret[i + 6] = baHeaderSize[i];
-        }
+            nPosition++;
+        } while (nReadValue == 0);
+        //The first byte that's not padding        
 
-        return ret;
+        byte[] baHeader = bos.toByteArray();
+        byte[] baHeaderSize = synchronizeIntegerValue(baHeader.length);
+        System.arraycopy(baHeaderSize, 0, baHeader, 6, 4);
+
+        os.write(baHeader);
+        
+        int nReadCount = -1;
+        byte[] buf = new byte[65536];
+        while ((nReadCount = is.read(buf)) != -1) 
+            os.write(buf, 0, nReadCount);
     }
 
     public static byte[] appendHeader(byte[] data, HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
@@ -223,15 +219,23 @@ public class ID3V2Encoder {
         return nResult;
     }
 
-    public static HashMap<Tag, String> getTags(byte[] data, String sCharsetName) throws IOException {
-        HashMap<Tag, String> hmResult = new HashMap<Tag, String>();
-        
-        InputStream isTagsLength = new ByteArrayInputStream(data, 6, 4);
+    //stream read point should be at the beginning of the header size section
+    public static byte[] getFrames(InputStream is) throws IOException {
         byte[] baHeaderLength = new byte[4];
-        isTagsLength.read(baHeaderLength);
+        is.read(baHeaderLength);
+
         int nHeaderLength = desynchronizeIntegerValue(baHeaderLength);
 
-        InputStream is = new ByteArrayInputStream(data, 10, nHeaderLength);
+        byte[] baHeader = new byte[nHeaderLength];
+
+        is.read(baHeader);
+        return baHeader;
+    }
+
+    public static HashMap<Tag, String> getTags(byte[] frames, String sCharsetName) throws IOException {
+        HashMap<Tag, String> hmResult = new HashMap<Tag, String>();
+
+        InputStream is = new ByteArrayInputStream(frames);
         while (is.available() > 0) {
             byte[] baTagName = new byte[4];
             byte[] baTagLength = new byte[4];
@@ -257,20 +261,5 @@ public class ID3V2Encoder {
         }
 
         return hmResult;
-    }
-
-    //is is moved by 10 bytes
-    private static byte[] getHeaderHeaderBytes(InputStream is) throws IOException {
-        //Get ID3 header - 10 bytes
-        byte[] baHeader = new byte[10];
-        is.read(baHeader);
-        return baHeader;
-    }
-
-    //nHeaderLength contains FULL header length, including the first 10 bytes of headerheader
-    private static byte[] getHeaderBytes(InputStream is, int nHeaderLength) throws IOException {
-        byte[] baTags = new byte[nHeaderLength - 10];
-        is.read(baTags);
-        return baTags;
     }
 }
