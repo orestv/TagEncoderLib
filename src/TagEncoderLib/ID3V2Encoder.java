@@ -90,11 +90,10 @@ public class ID3V2Encoder {
 
         bis.read(baFrameName);
         //headerHeader + first frame name
-        int nPosition = 10 + 4;
         byte[] baFrameLength = new byte[4];
         byte[] baFrameFlags = new byte[2];
 
-        while (nPosition < nHeaderSize && !Arrays.equals(baFrameName, baEmpty)) {
+        while (bis.available() > 0 && !Arrays.equals(baFrameName, baEmpty)) {
             bos.write(baFrameName);
             String sTagName = new String(baFrameName);
             Tag tag = getTagType(sTagName);
@@ -107,13 +106,10 @@ public class ID3V2Encoder {
             bis.read(baFrameLength);
             bis.read(baFrameFlags);
             //length + flags + encoding
-            nPosition += 4 + 2 + 1;
             int nFrameLength = desynchronizeIntegerValue(baFrameLength);
-            nPosition += nFrameLength;
             if (sTagValue != null) {
                 byte[] baFrameValue = getTagBytes(sTagValue, getTagType(sTagName));
                 bis.skip(nFrameLength);
-                nPosition += nFrameLength;
 
                 nFrameLength = baFrameValue.length;
                 bos.write(synchronizeIntegerValue(nFrameLength));
@@ -128,11 +124,9 @@ public class ID3V2Encoder {
                 for (int i = 0; i < nFrameLength; i++) {
                     bos.write(bis.read());
                 }
-                nPosition += nFrameLength;
             }
 
             bis.read(baFrameName);
-            nPosition += 4;
         }
         bos.write(baFrameName);
 
@@ -140,7 +134,6 @@ public class ID3V2Encoder {
         //Move through padding
         do {
             nReadValue = bis.read();
-            nPosition++;
         } while (nReadValue == 0);
         //The first byte that's not padding        
 
@@ -151,7 +144,7 @@ public class ID3V2Encoder {
         os.write(baHeader);
         
         int nReadCount = -1;
-        byte[] buf = new byte[65536];
+        byte[] buf = new byte[1<<19];
         while ((nReadCount = is.read(buf)) != -1) 
             os.write(buf, 0, nReadCount);
     }

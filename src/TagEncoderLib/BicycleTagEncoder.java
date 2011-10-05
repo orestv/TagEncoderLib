@@ -66,9 +66,9 @@ public class BicycleTagEncoder {
         
         int nBytesLeft = is.available();
         byte[] baHeader = new byte[128];
-        is.skip(nBytesLeft - 3 - 128);
+        is.skip(nBytesLeft - 128);
         is.read(baHeader);
-        if (new String(baHeader).substring(0, 2).equals("TAG"))
+        if (new String(baHeader).substring(0, 3).equals("TAG"))
             return new TagData(TagVersion.ID3V1, baHeader);
         return null;
     }
