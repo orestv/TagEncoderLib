@@ -127,7 +127,8 @@ public class ID3V1Encoder extends AbstractTagEncoder {
     }
     
     public static byte[] stripTag(byte[] data) {
-        byte[] ret = Arrays.copyOf(data, data.length-128);
-        return ret;
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length-128);
+        bos.write(data, 0, data.length-128);
+        return bos.toByteArray();
     }
 }

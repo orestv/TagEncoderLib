@@ -15,16 +15,14 @@ import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.logging.StreamHandler;
 
 /**
  *
  * @author ovoloshchuk
  */
-public class ID3V2Encoder extends AbstractTagEncoder {
+public class ID3V2Encoder {
 
-    public ID3V2Encoder(byte[] data) {
-        super(data);
-    }
 
     private static String getCode(Tag tag) {
         switch (tag) {
@@ -73,85 +71,18 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         return null;
     }
 
-    @Override
-    public void updateTagValue(OutputStream os, Tag tag, String value) throws IOException {
-        InputStream is = new ByteArrayInputStream(data);
-        byte[] baHeaderHeader = getHeaderHeaderBytes(is);
-        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(baHeaderHeader, 6, 4));
-        byte[] baHeaderLength = new byte[4];
-        dis.read(baHeaderLength);
-        int nOldHeaderLength = desynchronizeIntegerValue(baHeaderLength);
-
-        byte[] baHeader = getHeaderBytes(is, nOldHeaderLength);
-
-        int nTagNameIndex = 0;
-        boolean bTagFound = false;
-        int nTagStartIndex = 0;
-        for (nTagStartIndex = 0; nTagStartIndex < baHeader.length; nTagStartIndex++) {
-            if ((char) baHeader[nTagStartIndex] == getCode(tag).charAt(nTagNameIndex)) {
-                nTagNameIndex++;
-            } else {
-                nTagNameIndex = 0;
-            }
-            if (nTagNameIndex >= getCode(tag).length()) {
-                nTagStartIndex++;
-                bTagFound = true;
-                break;
-            }
-        }
-        if (bTagFound) {
-            System.out.println("Tag found at position " + Integer.toString(nTagStartIndex));
-        } else {
-            System.out.println("Tag not found!");
-        }
-        ByteArrayInputStream bis = new ByteArrayInputStream(baHeader, nTagStartIndex, nOldHeaderLength - nTagStartIndex);
-
-        byte[] baOldTagLength = new byte[4];
-        bis.read(baOldTagLength);
-        int nOldTagLength = desynchronizeIntegerValue(baOldTagLength);
-        byte[] baTagFlags = new byte[2];
-        bis.read(baTagFlags);
-        byte[] baNewTagValue = value.getBytes("UTF-16");
-        int nNewTagLength = baNewTagValue.length + 1;
-
-        int nNewHeaderLength = baHeader.length + (nNewTagLength - nOldTagLength);
-
-        //4 - tag length, 3 - tag flags
-        int nNextTagIndex = nTagStartIndex + 4 + 2 + nOldTagLength;
-
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(nNewHeaderLength);
-
-        bos.write(baHeaderHeader, 0, 6);
-        bos.write(synchronizeIntegerValue(nNewHeaderLength));
-        bos.write(baHeader, 0, nTagStartIndex);
-        bos.write(synchronizeIntegerValue(nNewTagLength));
-        bos.write(baTagFlags);
-        //UTF-16 mark
-        bos.write(1);
-        bos.write(baNewTagValue);
-        bos.write(baHeader, nNextTagIndex, nOldHeaderLength - nNextTagIndex - 10);
-        bos.writeTo(os);
-
-        byte[] buf = new byte[1048576];
-        int nReadCount = 0;
-        while ((nReadCount = is.read(buf)) != -1) {
-            os.write(buf, 0, nReadCount);
-        }
-        is.close();
-        os.close();
-    }
-
-    public static byte[] updateTags(byte[] data, Tag[] tags, String[] values) throws IOException {
+    
+    public static byte[] updateTags(InputStream bis, Tag[] tags, String[] values) throws IOException {
 
         byte[] baEmpty = new byte[]{0, 0, 0, 0};
 
-        ByteArrayInputStream bis = new ByteArrayInputStream(data);
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length);
+        //ByteArrayInputStream bis = new ByteArrayInputStream(data);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(bis.available());
         //ID3, version, flags
-        bos.write(data, 0, 10);
+        for (int i = 0; i < 6; i++) 
+            bos.write(bis.read()); 
         
-        byte[] baHeaderSize = new byte[4];        
-        bis.skip(6);
+        byte[] baHeaderSize = new byte[4];
         bis.read(baHeaderSize);
         int nHeaderSize = desynchronizeIntegerValue(baHeaderSize);
 
@@ -162,13 +93,15 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         int nPosition = 10 + 4;
         byte[] baFrameLength = new byte[4];
         byte[] baFrameFlags = new byte[2];
+        
+        bos.write(baEmpty);
 
         while (nPosition < nHeaderSize && !Arrays.equals(baFrameName, baEmpty)) {
             bos.write(baFrameName);
             String sTagName = new String(baFrameName);
             Tag tag = getTagType(sTagName);
             String sTagValue = null;
-            for (int i = 0; i < tags.length; i++) {
+            for (int i = 0; tag != null && i < tags.length; i++) {
                 if (tags[i] == tag)
                     sTagValue = values[i];
             }
@@ -191,20 +124,34 @@ public class ID3V2Encoder extends AbstractTagEncoder {
             } else {
                 bos.write(baFrameLength);
                 bos.write(baFrameFlags);
-                byte[] baFrameValue = new byte[nFrameLength];
-                bis.read(baFrameValue);
+                
+                //Read/write the frame value
+                for (int i = 0; i < nFrameLength; i++) {
+                    bos.write(bis.read());
+                }                
                 nPosition += nFrameLength;
-                bos.write(baFrameValue);
             }
 
             bis.read(baFrameName);
             nPosition += 4;
         }
+        bos.write(baFrameName);
+        
+        int nReadValue = 0;
+        //Move through padding
+        while (nReadValue == 0)
+            nReadValue = bis.read();
+        //The first byte that's not padding
+        bos.write(nReadValue);
         
         byte[] baHeader = bos.toByteArray();
-        baHeaderSize = synchronizeIntegerValue(baHeader.length - 10);
+        baHeaderSize = synchronizeIntegerValue(baHeader.length - 11);        
         
-        bos.write(data, nPosition, data.length-nPosition);
+        byte[] buf = new byte[8192];
+        int nReadCount = 0;
+        while ((nReadCount = bis.read(buf)) != -1)
+            bos.write(buf, 0, nReadCount);
+        //bos.write(data, nPosition, data.length-nPosition-1);
         byte[] ret = bos.toByteArray();
         for (int i = 0; i < 4; i++) {
             ret[i + 6] = baHeaderSize[i];
@@ -231,7 +178,6 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         while (iter.hasNext()) {
             Tag tag = iter.next();
             String value = tags.get(tag);
-            byte[] baValue2 = value.getBytes("UTF-16");
             byte[] baValue = getTagBytes(value, tag);
             byte[] baFrameLength = synchronizeIntegerValue(baValue.length);
 
@@ -277,27 +223,29 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         return nResult;
     }
 
-    public static HashMap<Tag, String> getTags(byte[] baTags, String sCharsetName) throws IOException {
+    public static HashMap<Tag, String> getTags(byte[] data, String sCharsetName) throws IOException {
         HashMap<Tag, String> hmResult = new HashMap<Tag, String>();
+        
+        InputStream isTagsLength = new ByteArrayInputStream(data, 6, 4);
+        byte[] baHeaderLength = new byte[4];
+        isTagsLength.read(baHeaderLength);
+        int nHeaderLength = desynchronizeIntegerValue(baHeaderLength);
 
-        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(baTags));
-        while (true) {
-            if (dis.available() == 0) {
-                break;
-            }
+        InputStream is = new ByteArrayInputStream(data, 10, nHeaderLength);
+        while (is.available() > 0) {
             byte[] baTagName = new byte[4];
             byte[] baTagLength = new byte[4];
-            dis.read(baTagName);
-            dis.read(baTagLength);
+            is.read(baTagName);
+            is.read(baTagLength);
 
             //Technical value - some flags and encoding specification
-            dis.skip(3);
+            is.skip(3);
             int nTagLength = desynchronizeIntegerValue(baTagLength) - 1;
             if (nTagLength <= 0) {
                 break;
             }
             byte[] baTagValue = new byte[nTagLength];
-            dis.read(baTagValue);
+            is.read(baTagValue);
 
             String sName, sValue;
             sName = new String(baTagName);
@@ -324,26 +272,5 @@ public class ID3V2Encoder extends AbstractTagEncoder {
         byte[] baTags = new byte[nHeaderLength - 10];
         is.read(baTags);
         return baTags;
-    }
-
-    //moves input stream to the end of the header
-    private static byte[] getHeaderBytes(InputStream is) throws IOException {
-        byte[] baHeader = getHeaderHeaderBytes(is);
-
-        //Get last 4 bytes of the header - ID3 header length.
-        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(baHeader, 6, 4));
-        byte[] baHeaderLength = new byte[4];
-        dis.read(baHeaderLength);
-        //Parse synchronized int.
-        int nHeaderLength = desynchronizeIntegerValue(baHeaderLength);
-        //Read the whole header.
-        return getHeaderBytes(is, nHeaderLength);
-    }
-
-    @Override
-    public HashMap<Tag, String> getTags(String sCharsetName) throws IOException {
-        InputStream is = new ByteArrayInputStream(data);
-        byte[] baTags = getHeaderBytes(is);
-        return getTags(baTags, sCharsetName);
     }
 }
