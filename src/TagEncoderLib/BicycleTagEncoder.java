@@ -5,6 +5,9 @@
 package TagEncoderLib;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -94,12 +97,32 @@ public class BicycleTagEncoder {
     }
     
     public static void convertV1ToV2(InputStream is, OutputStream os, String sCharsetName) throws IOException {
-        TagData data = parseTagVersion(is);
-        if (data.version != TagVersion.ID3V1)
-            return;
-        HashMap<Tag, String> tags = ID3V1Encoder.getTags(data.data, sCharsetName);
-        byte[] result = ID3V1Encoder.stripTag(data.data);
-        result = ID3V2Encoder.appendHeader(result, tags);
-        os.write(result);
+        File fTemp = File.createTempFile("tagEncoder", "dataOnly");
+        OutputStream tmpOs = new FileOutputStream(fTemp);
+        
+        int nBufferSize = 1<<20;
+        int nReadCount = 0;
+        byte[] buf = new byte[nBufferSize];
+        while (is.available() > 128) {  //While we haven't reached the last 128 bytes, the header
+            //If the last 128 bytes are closer then buffer size, read until them
+            nReadCount = is.read(buf, 0, Math.min(nBufferSize, is.available()-128));
+            tmpOs.write(buf, 0, nReadCount);
+        }
+        tmpOs.close();
+        
+        byte[] baHeader = new byte[125];    //ID3V1 header
+        is.skip(3); //Skip "TAG"
+        is.read(baHeader);
+        
+        HashMap<Tag, String> tags = ID3V1Encoder.getTags(baHeader, sCharsetName);
+        baHeader = ID3V2Encoder.createHeader(tags);
+        
+        os.write(baHeader);
+        
+        InputStream tmpIs = new FileInputStream(fTemp);
+        while ((nReadCount = tmpIs.read(buf)) != -1)
+            os.write(buf);
+        tmpIs.close();
+        fTemp.delete();
     }
 }

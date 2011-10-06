@@ -157,7 +157,7 @@ public class ID3V2Encoder {
         return bos.toByteArray();
     }
 
-    private static byte[] createHeader(HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
+    public static byte[] createHeader(HashMap<Tag, String> tags) throws UnsupportedEncodingException, IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
         //Tag header - ID3v2.3.0 and flags (none set)

@@ -22,6 +22,7 @@ public class ID3V1Encoder {
         return getTags(data, "ISO8859-1");
     }
     
+    //data should be the last 125 bytes of the file
     public static HashMap<Tag, String> getTags(byte[] data, String sCharsetName) throws IOException {
         HashMap<Tag, String> tags = new HashMap<Tag, String>();
         byte[] baTags = getTagBytes(data);
