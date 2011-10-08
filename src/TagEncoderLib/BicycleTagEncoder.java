@@ -56,7 +56,7 @@ public class BicycleTagEncoder {
         return buf;
     }
 
-    private static TagData parseTagVersion(InputStream is) throws IOException {
+    public static TagData parseTagVersion(InputStream is) throws IOException {
         byte[] first_3 = new byte[3];
         
         is.read(first_3);
